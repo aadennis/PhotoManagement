@@ -1,9 +1,12 @@
 # blogimg.ps1
 #
 # PURPOSE
-#   Convert any input image (PNG, JPEG, TIFF, etc.) into a blog‑ready JPEG.
-#   The output is resized so the long edge is 2200px, metadata is stripped,
-#   and JPEG quality is set to a visually clean ~80%.
+#   Convert any input image (PNG, JPEG, TIFF, etc.) into a blog‑ready JPEG,
+#   and a matching thumbnail file, denoted by "_tn_" in the thumbnail
+#   filename.
+#   The main output is resized so the long edge is 2200px, metadata is stripped,
+#   and JPEG quality is set to a visually clean ~80%. For tn the long edge 
+#   is 600px.
 #
 #   Resize an input image so the long edge becomes 2200px, convert to JPEG,
 #   remove metadata, and save the result into an "output" subfolder located
@@ -81,6 +84,15 @@ if (-not (Test-Path $outdir)) {
 }
 
 $basename = Split-Path $fullPath -Leaf
-$outfile  = Join-Path $outdir "${basename}_size2200.jpg"
 
-ffmpeg -i $fullPath -vf "scale=2200:-1" -q:v 3 -map_metadata -1 $outfile
+# Main 2200px output
+$out_main = Join-Path $outdir "${basename}_size2200.jpg"
+
+# Thumbnail output (600px)
+$out_tn   = Join-Path $outdir "${basename}_tn.jpg"
+
+# Create main resized image
+ffmpeg -i $fullPath -vf "scale=2200:-1" -q:v 3 -map_metadata -1 $out_main
+
+# Create thumbnail
+ffmpeg -i $fullPath -vf "scale=600:-1" -q:v 6 -map_metadata -1 $out_tn
