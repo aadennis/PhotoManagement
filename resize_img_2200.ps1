@@ -5,6 +5,15 @@
 #   The output is resized so the long edge is 2200px, metadata is stripped,
 #   and JPEG quality is set to a visually clean ~80%.
 #
+#   Resize an input image so the long edge becomes 2200px, convert to JPEG,
+#   remove metadata, and output a blog‑ready file named:
+#       <input>_size2200.jpg
+#
+# ARGUMENT CHECKING
+#   If no argument is provided, the script prints a short usage message
+#   and exits without running ffmpeg.
+#
+#
 # USAGE
 #   resize_img_2200.ps1 <inputfile>
 #
@@ -12,7 +21,7 @@
 #       resize_img_2200 photo.png
 #
 #   This produces:
-#       photo.png_blog.jpg
+#       photo_size2200.jpg
 #
 # PARAMETERS
 #   $args[0]
@@ -40,15 +49,18 @@
 #
 # OUTPUT NAMING
 #   "$($args[0])_blog.jpg"
-#       Takes the original filename and appends "_blog.jpg".
-#       Ensures predictable, collision‑free output.
+#       Takes the original filename and appends "_size2200.jpg".
 #
 # DEPENDENCIES
 #   Requires ffmpeg to be installed and available in PATH.
 #
 # NOTES
 #   - Input format does not matter; output is always JPEG.
-#   - This script guarantees deterministic, blog‑ready output.
-#   - Ideal for batch workflows or drag‑and‑drop wrappers.
+
+
+if (-not $args[0]) {
+    Write-Host "Usage: size2200 <inputfile>"
+    exit 1
+}
 
 ffmpeg -i $args[0] -vf "scale=2200:-1" -q:v 3 -map_metadata -1 "$($args[0])_size2200.jpg"
