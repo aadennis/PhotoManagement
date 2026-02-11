@@ -91,8 +91,8 @@ $out_main = Join-Path $outdir "${basename}_size2200.jpg"
 # Thumbnail output (600px)
 $out_tn   = Join-Path $outdir "${basename}_tn.jpg"
 
-# Create main resized image
-ffmpeg -i $fullPath -vf "scale=2200:-1" -q:v 3 -map_metadata -1 $out_main
+# Create main resized image (overwrite enabled)
+ffmpeg -y -i $fullPath -vf "scale=2200:-1" -q:v 3 -map_metadata -1 $out_main
 
-# Create thumbnail
-ffmpeg -i $fullPath -vf "scale=600:-1" -q:v 6 -map_metadata -1 $out_tn
+# Create thumbnail (overwrite enabled)
+ffmpeg -y -i $fullPath -vf "scale=600:-1" -q:v 6 -map_metadata -1 $out_tn
