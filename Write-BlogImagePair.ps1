@@ -1,81 +1,40 @@
-# blogimg.ps1
-#
-# PURPOSE
-#   Convert any input image (PNG, JPEG, TIFF, etc.) into a blog‑ready JPEG,
-#   and a matching thumbnail file, denoted by "_tn_" in the thumbnail
-#   filename.
-#   The main output is resized so the long edge is 2200px, metadata is stripped,
-#   and JPEG quality is set to a visually clean ~80%. For tn the long edge 
-#   is 600px.
-#
-#   Resize an input image so the long edge becomes 2200px, convert to JPEG,
-#   remove metadata, and save the result into an "output" subfolder located
-#   beside the input file.
-#
-# ARGUMENT CHECKING
-#   If no argument is provided, the script prints a short usage message
-#   and exits without running ffmpeg.
-#
-#
-# USAGE
-#   resize_img_2200.ps1 <inputfile>
-#
-# EXAMPLE
-#       resize_img_2200 C:\photos\image.png
-#       .\resize_img_2200.ps1 "(dummy)\blog_pics\MeRun01Enhancedv2.png"
-#
-# OUTPUT
-#       C:\photos\output\image.png_size2200.jpg
-#       "(dummy)\blog_pics\output\MeRun01Enhancedv2.png_size2200.jpg"
-#
-#
-# BEHAVIOUR
-#   - Creates the "output" folder if it does not already exist.
-#   - Always outputs JPEG regardless of input format.
-#   - Strips metadata.
-#
-# PARAMETERS
-#   $args[0]
-#       The first argument passed to the script.
-#       Represents the input filename (with extension).
-#
-# ffmpeg FLAGS
-#   -i <file>
-#       Specifies the input file.
-#
-#   -vf "scale=2200:-1"
-#       Video filter (applies to images too).
-#       Resizes the image so the *long edge* becomes 2200px.
-#       The -1 tells ffmpeg to auto‑calculate the other dimension
-#       while preserving aspect ratio.
-#
-#   -q:v 3
-#       JPEG quality level.
-#       Lower numbers = higher quality.
-#       3 ≈ 80% quality, ideal for web photos (~0.7–1.3 MB).
-#
-#   -map_metadata -1
-#       Removes all metadata (EXIF, GPS, camera info, thumbnails).
-#       Reduces file size and protects privacy.
-#
-# OUTPUT NAMING
-#   "$($args[0])_blog.jpg"
-#       Takes the original filename and appends "_size2200.jpg".
-#
-# DEPENDENCIES
-#   Requires ffmpeg to be installed and available in PATH.
-#
-# NOTES
-#   - Input format does not matter; output is always JPEG.
+<#
+.SYNOPSIS
+Generates two blog-ready JPEG images from a single input file.
 
+.DESCRIPTION
+Write-BlogImagePair takes an input image of any format supported by ffmpeg
+and produces two resized JPEG outputs:
 
-if (-not $args[0]) {
-    Write-Host "Usage: size2200 <inputfile>"
-    exit 1
-}
+  1. A main blog image with a 2200px long edge.
+  2. A thumbnail image with a 600px long edge.
 
-$infile   = $args[0]
-$fullPath = Resolve-Path $infile
+Both files are written into an "output" subfolder located beside the input
+file. The folder is created automatically if it does not already exist.
+
+All metadata is stripped. Existing output files are overwritten without
+prompting.
+
+.PARAMETER InputFile
+The path to the input image. Can be absolute or relative.
+
+.EXAMPLE
+Write-BlogImagePair C:\photos\image.png
+
+Produces:
+  C:\photos\output\image.png_size2200.jpg
+  C:\photos\output\image.png_tn.jpg
+
+.NOTES
+Requires ffmpeg to be installed and available in PATH.
+#>
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$InputFile
+)
+
+$fullPath = Resolve-Path $InputFile
 $dir      = Split-Path $fullPath
 $outdir   = Join-Path $dir "output"
 
