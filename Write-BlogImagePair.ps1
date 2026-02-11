@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-Generates two blog-ready JPEG images from a single input file.
+Creates two blog-ready JPEG images from a single input file.
 
 .DESCRIPTION
 Write-BlogImagePair takes an input image of any format supported by ffmpeg
-and produces two resized JPEG outputs:
+and generates two resized JPEG outputs:
 
-  1. A main blog image with a 2200px long edge.
-  2. A thumbnail image with a 600px long edge.
+  • A main blog image with a 2200px long edge.
+  • A thumbnail image with a 600px long edge.
 
 Both files are written into an "output" subfolder located beside the input
 file. The folder is created automatically if it does not already exist.
@@ -16,17 +16,30 @@ All metadata is stripped. Existing output files are overwritten without
 prompting.
 
 .PARAMETER InputFile
-The path to the input image. Can be absolute or relative.
+The path to the input image. Can be absolute or relative. The file must
+exist and be readable.
 
 .EXAMPLE
 Write-BlogImagePair C:\photos\image.png
 
-Produces:
+Creates:
   C:\photos\output\image.png_size2200.jpg
   C:\photos\output\image.png_tn.jpg
 
+.EXAMPLE
+Write-BlogImagePair .\header_photo.png
+
+Creates:
+  .\output\header_photo.png_size2200.jpg
+  .\output\header_photo.png_tn.jpg
+
 .NOTES
 Requires ffmpeg to be installed and available in PATH.
+This script overwrites existing output files without confirmation.
+
+Get-Help Write-BlogImagePair
+Get-Help Write-BlogImagePair -Detailed
+Get-Help Write-BlogImagePair -Full
 #>
 
 param(
