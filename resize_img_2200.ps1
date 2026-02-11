@@ -6,8 +6,8 @@
 #   and JPEG quality is set to a visually clean ~80%.
 #
 #   Resize an input image so the long edge becomes 2200px, convert to JPEG,
-#   remove metadata, and output a blog‑ready file named:
-#       <input>_size2200.jpg
+#   remove metadata, and save the result into an "output" subfolder located
+#   beside the input file.
 #
 # ARGUMENT CHECKING
 #   If no argument is provided, the script prints a short usage message
@@ -17,11 +17,19 @@
 # USAGE
 #   resize_img_2200.ps1 <inputfile>
 #
-#   Example:
-#       resize_img_2200 photo.png
+# EXAMPLE
+#       resize_img_2200 C:\photos\image.png
+#       .\resize_img_2200.ps1 "(dummy)\blog_pics\MeRun01Enhancedv2.png"
 #
-#   This produces:
-#       photo_size2200.jpg
+# OUTPUT
+#       C:\photos\output\image.png_size2200.jpg
+#       "(dummy)\blog_pics\output\MeRun01Enhancedv2.png_size2200.jpg"
+#
+#
+# BEHAVIOUR
+#   - Creates the "output" folder if it does not already exist.
+#   - Always outputs JPEG regardless of input format.
+#   - Strips metadata.
 #
 # PARAMETERS
 #   $args[0]
@@ -63,4 +71,16 @@ if (-not $args[0]) {
     exit 1
 }
 
-ffmpeg -i $args[0] -vf "scale=2200:-1" -q:v 3 -map_metadata -1 "$($args[0])_size2200.jpg"
+$infile   = $args[0]
+$fullPath = Resolve-Path $infile
+$dir      = Split-Path $fullPath
+$outdir   = Join-Path $dir "output"
+
+if (-not (Test-Path $outdir)) {
+    New-Item -ItemType Directory -Path $outdir | Out-Null
+}
+
+$basename = Split-Path $fullPath -Leaf
+$outfile  = Join-Path $outdir "${basename}_size2200.jpg"
+
+ffmpeg -i $fullPath -vf "scale=2200:-1" -q:v 3 -map_metadata -1 $outfile
