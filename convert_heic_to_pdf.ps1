@@ -22,14 +22,17 @@ if ($heicFiles.Count -eq 0) {
 
 $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $outputFile = Join-Path $outputFolder "$timestamp.pdf"
+$maxWidth = 2560
+$maxHeight = 1440
+$jpegQuality = 75
 
 if (Get-Command magick -ErrorAction SilentlyContinue) {
-    Write-Output "Using ImageMagick 'magick' to create PDF..."
-    magick convert "$InputFolder\$imageType" "$outputFile"
+    Write-Output "Using ImageMagick 'magick' to create PDF (resize ${maxWidth}x${maxHeight}, quality $jpegQuality)..."
+    magick convert "$InputFolder\$imageType" -resize "${maxWidth}x${maxHeight}>" -quality $jpegQuality -compress JPEG "$outputFile"
 }
 elseif (Get-Command convert -ErrorAction SilentlyContinue) {
-    Write-Output "Using ImageMagick 'convert' to create PDF..."
-    convert "$InputFolder\$imageType" "$outputFile"
+    Write-Output "Using ImageMagick 'convert' to create PDF (resize ${maxWidth}x${maxHeight}, quality $jpegQuality)..."
+    convert "$InputFolder\$imageType" -resize "${maxWidth}x${maxHeight}>" -quality $jpegQuality -compress JPEG "$outputFile"
 }
 else {
     Write-Error "ImageMagick 'magick' or 'convert' not found. Install ImageMagick first."
