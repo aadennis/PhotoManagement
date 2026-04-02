@@ -1,8 +1,7 @@
 Param(
-    [string]$InputFolder = 'C:\temp\heicset'
+    [string]$InputFolder = 'C:\temp\heicset',
+    [string]$ImageType = '*.heic'
 )
-
-$imageType = '*.heic'
 
 # Convert all .heic images in a folder into one PDF, saved to <input>\pdf_saved\YYYYMMDD_HHMMSS.pdf
 
