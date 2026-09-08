@@ -14,10 +14,10 @@
 # cd /mnt/d/...../BashScripts/photo_management
 # sudo apt upgrade
 # sudo apt update
-# sudo apt install imagemagick libheif1
+# sudo apt install imagemagick libheif1 libheif-examples libheif-plugin-libde265
 # refresh session
 
-# Usage: ./batch_heic_to_jpeg.sh input_folder output_folder
+# Usage: ./convert_heic_to_jpeg.sh input_folder output_folder
 # Input validation
 # if [ $# -ne 2 ]; then
 #     echo "Usage: $0 <input_folder> <output_folder>"
@@ -26,20 +26,35 @@
 # input_folder="$1"
 # output_folder="$2"
 
-input_folder="/mnt/c/temp/downloads/png_out"
-output_folder="/mnt/c/temp/downloads/png_out/converted"
+# sanity check:
+# (HEIC support showing up in ImageMagick does not guarantee HEIC decoding will work. 
+# The HEVC decoder plugin (libheif-plugin-libde265) may also be required.
+# convert -list format | grep -i HEIC
+# heif-convert image.heic test.jpg
+
+# to test a single file when debugging, use eg:
+# heif-convert "/mnt/c/temp/OneDrive_2_08-09-2026/20260907_150650682_iOS.heic" test.jpg
+# heif-info "/mnt/c/temp/OneDrive_2_08-09-2026/20260907_150650682_iOS.heic"
+
+
+input_folder="/mnt/c/temp/OneDrive_2_08-09-2026"
+output_folder="${input_folder}/converted"
 
 mkdir -p "$output_folder"
 
-# Convert each .heic file
-for input_file in "$input_folder"/*.heic; do
-    if [ -f "$input_file" ]; then
-        filename=$(basename "$input_file" .heic)
-        output_file="$output_folder/$filename.jpg"
-        convert "$input_file" -resize 2560x1440 "$output_file"
-        echo "Converted: $input_file -> $output_file"
-    fi
+find "$input_folder" -maxdepth 1 -type f -iname "*.heic" |
+while read -r input_file
+do
+    filename=$(basename "$input_file")
+    filename="${filename%.*}"
+
+    output_file="$output_folder/$filename.jpg"
+
+    convert "$input_file" -resize 2560x1440 "$output_file"
+
+    echo "Converted: $input_file -> $output_file"
 done
 
 echo "Batch conversion complete!"
+
  
