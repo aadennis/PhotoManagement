@@ -41,7 +41,7 @@ validate_configuration() {
         exit 1
     }
 
-    (( TEST_LIMIT > 0 )) || {
+    ((TEST_LIMIT > 0)) || {
         echo "ERROR: TEST_LIMIT must be greater than zero"
         exit 1
     }
@@ -67,21 +67,20 @@ extract_valid_dates() {
 
     while read -r candidate; do
 
-        [[ -z "$candidate" ]] && continue
-
         year=${candidate:0:4}
         month=${candidate:4:2}
         day=${candidate:6:2}
 
         if date -d "${year}-${month}-${day}" "+%Y%m%d" \
-            2>/dev/null | grep -qx "$candidate"
-        then
+            2>/dev/null | grep -qx "$candidate"; then
             echo "$candidate"
         fi
 
     done < <(
         grep -oE '[12][0-9]{3}[01][0-9][0-3][0-9]' \
-        <<<"$file" | sort -u
+            <<<"$file" |
+            sort -u ||
+            true
     )
 }
 
@@ -93,27 +92,31 @@ process_file() {
     local month
     local folder
 
-    ((files_scanned+=1))
+    ((files_scanned += 1))
 
-    mapfile -t valid_dates < <(extract_valid_dates "$file")
+    mapfile -t valid_dates < <(extract_valid_dates "$file" || true)
 
     local date_like_count=0
     date_like_count=$(
-        grep -oE '[12][0-9]{3}[01][0-9][0-3][0-9]' \
-        <<<"$file" | sort -u | wc -l
+        {
+            grep -oE '[12][0-9]{3}[01][0-9][0-3][0-9]' <<<"$file" |
+                sort -u
+        } 2>/dev/null || true
     )
+
+    date_like_count=$(wc -w <<<"$date_like_count")
 
     case ${#valid_dates[@]} in
 
         0)
 
-            if (( date_like_count > 0 )); then
+            if ((date_like_count > 0)); then
                 invalid_date_files+=("$file")
-                ((files_invalid+=1))
+                ((files_invalid += 1))
                 echo "INVALID : $file"
             else
                 no_date_files+=("$file")
-                ((files_no_date+=1))
+                ((files_no_date += 1))
                 echo "IGNORE  : $file"
             fi
             ;;
@@ -130,7 +133,7 @@ process_file() {
             move_plan["$file"]="$folder"
             target_dirs["$folder"]=1
 
-            ((files_valid+=1))
+            ((files_valid += 1))
 
             echo "PLAN    : $file -> $folder/"
             ;;
@@ -185,14 +188,25 @@ print_summary() {
     echo "Files with valid date   : $files_valid"
     echo "Files with no date      : $files_no_date"
     echo "Files with invalid date : $files_invalid"
-    echo "Folders required        : ${#target_dirs[@]}"
-    echo "Planned moves           : ${#move_plan[@]}"
+    folders_required=0
+    planned_moves=0
+
+    for _ in "${!target_dirs[@]}"; do
+        ((folders_required += 1))
+    done
+
+    for _ in "${!move_plan[@]}"; do
+        ((planned_moves += 1))
+    done
+
+    echo "Folders required        : $folders_required"
+    echo "Planned moves           : $planned_moves"
     echo "Dry run                 : $([[ $DRY_RUN -eq 1 ]] && echo Yes || echo No)"
     echo "Move limit              : $TEST_LIMIT"
 
     echo
 
-    if ((${#target_dirs[@]})); then
+    if ((${#folders_required})); then
         echo "Folders to create:"
         printf '    %s\n' "${!target_dirs[@]}"
         echo
@@ -226,7 +240,7 @@ create_folders() {
 
     for dir in "${!target_dirs[@]}"; do
 
-        if (( DRY_RUN )); then
+        if ((DRY_RUN)); then
             echo "CREATE  : $dir/"
         else
             mkdir -p -- "$dir"
@@ -245,18 +259,18 @@ move_files() {
 
     for file in "${!move_plan[@]}"; do
 
-        (( files_moved >= TEST_LIMIT )) && break
+        ((files_moved >= TEST_LIMIT)) && break
 
         dest=${move_plan[$file]}
 
-        if (( DRY_RUN )); then
+        if ((DRY_RUN)); then
             echo "MOVE    : $file -> $dest/"
         else
             echo "MOVE    : $file -> $dest/"
             mv -- "$file" "$dest/"
         fi
 
-        ((files_moved+=1))
+        ((files_moved += 1))
 
     done
 }
@@ -271,7 +285,7 @@ print_final_summary() {
 
     echo "Files moved this run : $files_moved"
 
-    if (( DRY_RUN )); then
+    if ((DRY_RUN)); then
         echo "Mode                : DRY RUN"
     else
         echo "Mode                : LIVE"
