@@ -6,7 +6,9 @@ set -euo pipefail
 # Configuration
 ##############################################################################
 
-DRY_RUN=1 # Set to 1 for dry run, 0 for live run
+SOURCE_DIR="${1:-${PWD}}" # Default to current directory if not provided
+
+DRY_RUN=1         # Set to 1 for dry run, 0 for live run
 TEST_LIMIT=999999 # Maximum number of files to move in a single run
 
 ##############################################################################
@@ -32,6 +34,31 @@ planned_moves=0
 ##############################################################################
 
 validate_configuration() {
+
+    [[ -d "$SOURCE_DIR" ]] || {
+        echo "ERROR: Directory does not exist: $SOURCE_DIR"
+        exit 1
+    }
+
+    [[ "$SOURCE_DIR" = /* ]] || {
+        echo "ERROR: Directory must be an absolute path"
+        exit 1
+    }
+
+    [[ "$SOURCE_DIR" != "/" ]] || {
+        echo "ERROR: Refusing to run in /"
+        exit 1
+    }
+
+    [[ -r "$SOURCE_DIR" ]] || {
+        echo "ERROR: Directory is not readable"
+        exit 1
+    }
+
+    [[ -w "$SOURCE_DIR" ]] || {
+        echo "ERROR: Directory is not writable"
+        exit 1
+    }
 
     [[ "$DRY_RUN" =~ ^[01]$ ]] || {
         echo "ERROR: DRY_RUN must be 0 or 1"
@@ -90,6 +117,8 @@ is_valid_date() {
 
 process_file() {
 
+
+
     local file=$1
 
     local -a candidates=()
@@ -112,6 +141,7 @@ process_file() {
     done
 
     ((files_scanned += 1))
+
 
     case ${#valid_dates[@]} in
 
@@ -182,21 +212,26 @@ process_file() {
 scan_files() {
 
     local -a files=()
-    script_name=$(basename "$0")
+    local script_name
+    script_name=$(basename -- "$0")
 
-    echo "Scanning current directory..."
+    echo "Scanning ${SOURCE_DIR} for files..."
     echo
 
     shopt -s nullglob
 
     mapfile -t files < <(
-        printf '%s\n' * | sort
+        find "$SOURCE_DIR" \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' |
+            sort
     )
 
     for file in "${files[@]}"; do
 
         [[ $file == "$script_name" ]] && continue
-        [[ -f "$file" ]] || continue
+        [[ -f "$SOURCE_DIR/$file" ]] || continue
 
         process_file "$file"
 
@@ -223,7 +258,7 @@ print_summary() {
     echo "Planned moves           : $planned_moves"
     echo "Dry run                 : $([[ $DRY_RUN -eq 1 ]] && echo Yes || echo No)"
     echo "Move limit              : $TEST_LIMIT"
-
+    echo "Target directory        : $SOURCE_DIR"
     echo
 
     if ((folders_required > 0)); then
@@ -284,12 +319,13 @@ create_folders() {
         if ((DRY_RUN)); then
             echo "CREATE  : $dir/"
         else
-            mkdir -p -- "$dir"
+            mkdir -p -- "$SOURCE_DIR/$dir"
             echo "CREATE  : $dir/"
         fi
 
     done
 }
+
 
 ##############################################################################
 # Moves
@@ -301,7 +337,7 @@ move_files() {
     local dest
     local -a files=()
 
-    if (( planned_moves == 0 )); then
+    if ((planned_moves == 0)); then
         return 0
     fi
 
@@ -313,20 +349,23 @@ move_files() {
 
     for file in "${files[@]}"; do
 
-        if (( files_moved >= TEST_LIMIT )); then
+        if ((files_moved >= TEST_LIMIT)); then
             break
         fi
 
         dest=${move_plan[$file]}
 
-        if (( DRY_RUN )); then
+        if ((DRY_RUN)); then
             echo "MOVE    : $file -> $dest/"
         else
             echo "MOVE    : $file -> $dest/"
-            mv -- "$file" "$dest/"
+            mv -- \
+                "$SOURCE_DIR/$file" \
+                "$SOURCE_DIR/$dest/"
+
         fi
 
-        ((files_moved+=1))
+        ((files_moved += 1))
 
     done
 }
