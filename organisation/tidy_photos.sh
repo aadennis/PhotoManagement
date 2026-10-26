@@ -13,20 +13,22 @@ TEST_LIMIT=2
 # Global State
 ##############################################################################
 
-declare -A move_plan
-declare -A target_dirs
+declare -A move_plan=()
+declare -A target_dirs=()
 
-declare -a no_date_files
-declare -a invalid_date_files
+declare -a no_date_files=()
+declare -a invalid_date_files=()
 
 files_scanned=0
 files_valid=0
 files_no_date=0
 files_invalid=0
 files_moved=0
+folders_required=0
+planned_moves=0
 
 ##############################################################################
-# Functions
+# Validation
 ##############################################################################
 
 validate_configuration() {
@@ -57,67 +59,78 @@ validate_configuration() {
     }
 }
 
-extract_valid_dates() {
+##############################################################################
+# Date Handling
+##############################################################################
+
+extract_candidates() {
 
     local file=$1
-    local candidate
-    local year
-    local month
-    local day
 
-    while read -r candidate; do
-
-        year=${candidate:0:4}
-        month=${candidate:4:2}
-        day=${candidate:6:2}
-
-        if date -d "${year}-${month}-${day}" "+%Y%m%d" \
-            2>/dev/null | grep -qx "$candidate"; then
-            echo "$candidate"
-        fi
-
-    done < <(
-        grep -oE '[12][0-9]{3}[01][0-9][0-3][0-9]' \
-            <<<"$file" |
-            sort -u ||
-            true
-    )
+    grep -oE '[12][0-9]{3}[01][0-9][0-3][0-9]' \
+        <<<"$file" 2>/dev/null || true
 }
+
+is_valid_date() {
+
+    local candidate=$1
+    local year month day
+
+    year=${candidate:0:4}
+    month=${candidate:4:2}
+    day=${candidate:6:2}
+
+    date -d "${year}-${month}-${day}" "+%Y%m%d" 2>/dev/null |
+        grep -qx "$candidate"
+}
+
+##############################################################################
+# File Processing
+##############################################################################
 
 process_file() {
 
     local file=$1
-    local date_value
-    local year
-    local month
+
+    local -a candidates=()
+    local -a valid_dates=()
+
+    local candidate
     local folder
+    local date_value
 
-    ((files_scanned += 1))
-
-    mapfile -t valid_dates < <(extract_valid_dates "$file" || true)
-
-    local date_like_count=0
-    date_like_count=$(
-        {
-            grep -oE '[12][0-9]{3}[01][0-9][0-3][0-9]' <<<"$file" |
-                sort -u
-        } 2>/dev/null || true
+    mapfile -t candidates < <(
+        extract_candidates "$file" | sort -u
     )
 
-    date_like_count=$(wc -w <<<"$date_like_count")
+    for candidate in "${candidates[@]}"; do
+
+        if is_valid_date "$candidate"; then
+            valid_dates+=("$candidate")
+        fi
+
+    done
+
+    ((files_scanned += 1))
 
     case ${#valid_dates[@]} in
 
         0)
 
-            if ((date_like_count > 0)); then
+            if ((${#candidates[@]} > 0)); then
+
                 invalid_date_files+=("$file")
                 ((files_invalid += 1))
+
                 echo "INVALID : $file"
+
             else
+
                 no_date_files+=("$file")
                 ((files_no_date += 1))
+
                 echo "IGNORE  : $file"
+
             fi
             ;;
 
@@ -125,14 +138,16 @@ process_file() {
 
             date_value=${valid_dates[0]}
 
-            year=${date_value:0:4}
-            month=${date_value:4:2}
-
-            folder="${year}-${month}"
+            folder="${date_value:0:4}-${date_value:4:2}"
 
             move_plan["$file"]="$folder"
-            target_dirs["$folder"]=1
 
+            if [[ -z ${target_dirs[$folder]+x} ]]; then
+                target_dirs["$folder"]=1
+                ((folders_required += 1))
+            fi
+
+            ((planned_moves += 1))
             ((files_valid += 1))
 
             echo "PLAN    : $file -> $folder/"
@@ -148,8 +163,8 @@ process_file() {
             echo
             echo "Dates:"
 
-            for d in "${valid_dates[@]}"; do
-                echo "    ${d:0:4}-${d:4:2}-${d:6:2}"
+            for candidate in "${valid_dates[@]}"; do
+                echo "    ${candidate:0:4}-${candidate:4:2}-${candidate:6:2}"
             done
 
             echo
@@ -160,14 +175,24 @@ process_file() {
     esac
 }
 
+##############################################################################
+# Scanning
+##############################################################################
+
 scan_files() {
+
+    local -a files=()
 
     echo "Scanning current directory..."
     echo
 
     shopt -s nullglob
 
-    for file in *; do
+    mapfile -t files < <(
+        printf '%s\n' * | sort
+    )
+
+    for file in "${files[@]}"; do
 
         [[ -f "$file" ]] || continue
 
@@ -175,6 +200,10 @@ scan_files() {
 
     done
 }
+
+##############################################################################
+# Reporting
+##############################################################################
 
 print_summary() {
 
@@ -188,17 +217,6 @@ print_summary() {
     echo "Files with valid date   : $files_valid"
     echo "Files with no date      : $files_no_date"
     echo "Files with invalid date : $files_invalid"
-    folders_required=0
-    planned_moves=0
-
-    for _ in "${!target_dirs[@]}"; do
-        ((folders_required += 1))
-    done
-
-    for _ in "${!move_plan[@]}"; do
-        ((planned_moves += 1))
-    done
-
     echo "Folders required        : $folders_required"
     echo "Planned moves           : $planned_moves"
     echo "Dry run                 : $([[ $DRY_RUN -eq 1 ]] && echo Yes || echo No)"
@@ -206,24 +224,39 @@ print_summary() {
 
     echo
 
-    if ((${#folders_required})); then
+    if ((folders_required > 0)); then
+
         echo "Folders to create:"
-        printf '    %s\n' "${!target_dirs[@]}"
+
+        for dir in "${!target_dirs[@]}"; do
+            echo "    $dir"
+        done
+
         echo
     fi
 
-    if ((${#invalid_date_files[@]})); then
+    if ((files_invalid > 0)); then
+
         echo "Files containing invalid dates:"
+
         printf '    %s\n' "${invalid_date_files[@]}"
+
         echo
     fi
 
-    if ((${#no_date_files[@]})); then
+    if ((files_no_date > 0)); then
+
         echo "Files with no recognised date:"
+
         printf '    %s\n' "${no_date_files[@]}"
+
         echo
     fi
 }
+
+##############################################################################
+# Confirmation
+##############################################################################
 
 confirm_proceed() {
 
@@ -236,7 +269,13 @@ confirm_proceed() {
     }
 }
 
+##############################################################################
+# Folder Creation
+##############################################################################
+
 create_folders() {
+
+    local dir
 
     for dir in "${!target_dirs[@]}"; do
 
@@ -250,30 +289,49 @@ create_folders() {
     done
 }
 
+##############################################################################
+# Moves
+##############################################################################
+
 move_files() {
 
     local file
     local dest
+    local -a files=()
+
+    if (( planned_moves == 0 )); then
+        return 0
+    fi
 
     echo
 
-    for file in "${!move_plan[@]}"; do
+    mapfile -t files < <(
+        printf '%s\n' "${!move_plan[@]}" | sort
+    )
 
-        ((files_moved >= TEST_LIMIT)) && break
+    for file in "${files[@]}"; do
+
+        if (( files_moved >= TEST_LIMIT )); then
+            break
+        fi
 
         dest=${move_plan[$file]}
 
-        if ((DRY_RUN)); then
+        if (( DRY_RUN )); then
             echo "MOVE    : $file -> $dest/"
         else
             echo "MOVE    : $file -> $dest/"
             mv -- "$file" "$dest/"
         fi
 
-        ((files_moved += 1))
+        ((files_moved+=1))
 
     done
 }
+
+##############################################################################
+# Final Report
+##############################################################################
 
 print_final_summary() {
 
@@ -291,6 +349,10 @@ print_final_summary() {
         echo "Mode                : LIVE"
     fi
 }
+
+##############################################################################
+# Main
+##############################################################################
 
 main() {
 
