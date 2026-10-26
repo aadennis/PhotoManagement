@@ -6,8 +6,8 @@ set -euo pipefail
 # Configuration
 ##############################################################################
 
-DRY_RUN=1
-TEST_LIMIT=2
+DRY_RUN=1 # Set to 1 for dry run, 0 for live run
+TEST_LIMIT=999999 # Maximum number of files to move in a single run
 
 ##############################################################################
 # Global State
@@ -182,6 +182,7 @@ process_file() {
 scan_files() {
 
     local -a files=()
+    script_name=$(basename "$0")
 
     echo "Scanning current directory..."
     echo
@@ -194,6 +195,7 @@ scan_files() {
 
     for file in "${files[@]}"; do
 
+        [[ $file == "$script_name" ]] && continue
         [[ -f "$file" ]] || continue
 
         process_file "$file"
