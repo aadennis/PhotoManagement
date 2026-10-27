@@ -35,14 +35,16 @@ The source directory must exist, be readable and writable, and must not be
 
 1. Scans regular files at the top level of the source directory, in sorted
    filename order. The script itself is skipped.
-2. Looks for eight-digit date strings in filenames in `YYYYMMDD` form and
-   validates them as calendar dates.
-3. Plans to move a file with exactly one valid date into the corresponding
-   `YYYY-MM/` folder. For example, a filename containing `20260114` is sorted
-   into `2026-01/`.
+2. Looks for complete eight-digit numeric groups in filenames in `YYYYMMDD`
+   form and validates them as calendar dates from 1970-01-01 onward. Partial
+   matches inside longer digit sequences are ignored; for example,
+   `150803255` is not treated as the date `15080325`.
+3. Uses the first valid date found from left to right in the filename and
+   plans to move the file into its corresponding `YYYY-MM/` folder. For
+   example, a filename containing `20260114` is sorted into `2026-01/`.
+   Additional valid dates in the same filename are ignored.
 4. Reports files with no date or only invalid date candidates without moving
-   them. If a filename contains more than one valid date, the script aborts
-   before creating folders or moving files.
+   them.
 5. Prints a summary and asks for confirmation. Press `y` to proceed; any other
    response cancels the run.
 
